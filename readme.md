@@ -1,5 +1,33 @@
-## Preprocess
+# Code Release of "XLD: A Cross-Lane Dataset for Benchmarking Novel Driving View Synthesis"
+Hao Li, Ming Yuan, Yan Zhang, Chenming Wu, Chen Zhao, Chunyu Song, Haocheng Feng, Errui Ding, Dingwen Zhang, Jingdong Wang
+![Teaser image](assets/teaser.jpg)
+## [Project page](https://3d-aigc.github.io/XLD/) | [Paper](https://arxiv.org/abs/2406.18360) | [Data](https://1drv.ms/f/s!Amx_1zEBrKfJg94-bGzJe1PaU8IU6Q?e=uVaFmg)
+
+This repository contains the official authors data preprocess tools for NeRFStudio and Gaussian Splatting methods. Additionally, for the dataloader of **UC-NeRF** and **EmerNeRF**, please E-mail✉️ authors.
+
+### Data Preprocess
+1. Unzip the compressed files (e.g. `carla_pic_0603_Town**.zip`).
+2. Download `intrinscis.zip` and `extrinsics.zip` from data link and unzip them. 
+3. Then move `intrinscis` and `extrinsics` to the corresponding folder.
 ```
+cp -r intrinsics data/carla_pic_0603_Town01
+cp -r extrinsics data/carla_pic_0603_Town01
+cp -r intrinsics data/carla_pic_0603_Town02
+cp -r extrinsics data/carla_pic_0603_Town02
+cp -r intrinsics data/carla_pic_0603_Town03
+cp -r extrinsics data/carla_pic_0603_Town03
+cp -r intrinsics data/carla_pic_0603_Town04
+cp -r extrinsics data/carla_pic_0603_Town04
+cp -r intrinsics data/carla_pic_0603_Town05
+cp -r extrinsics data/carla_pic_0603_Town05
+cp -r intrinsics data/carla_pic_0603_Town10
+cp -r extrinsics data/carla_pic_0603_Town10
+```
+The data tree should look like this:
+```
+generate_offset_0_test.py
+rename.py
+convert_XLD_transforms.py
 data
 ├── carlc_pic_0603_Town0N
 ├────────────|─────────── intrinsics
@@ -28,153 +56,75 @@ data
 ├────────────|─────────────── | ─────────────── | ───────── cameraX_0000N.png
 ├────────────|─────────────── | ─────────────── | ───────── lidar_0000N.ply
 ```
-
-#### 数据预处理
-cp -r ../data/carla_pic_0602/intrinsics data/carla_pic_0603_Town01
-cp -r ../data/carla_pic_0602/extrinsics data/carla_pic_0603_Town01
-cp -r ../data/carla_pic_0602/intrinsics data/carla_pic_0603_Town02
-cp -r ../data/carla_pic_0602/extrinsics data/carla_pic_0603_Town02
-cp -r ../data/carla_pic_0602/intrinsics data/carla_pic_0603_Town03
-cp -r ../data/carla_pic_0602/extrinsics data/carla_pic_0603_Town03
-cp -r ../data/carla_pic_0602/intrinsics data/carla_pic_0603_Town04
-cp -r ../data/carla_pic_0602/extrinsics data/carla_pic_0603_Town04
-cp -r ../data/carla_pic_0602/intrinsics data/carla_pic_0603_Town05
-cp -r ../data/carla_pic_0602/extrinsics data/carla_pic_0603_Town05
-cp -r ../data/carla_pic_0602/intrinsics data/carla_pic_0603_Town10
-cp -r ../data/carla_pic_0602/extrinsics data/carla_pic_0603_Town10
-
-
+Generate test set in 0m offset.
+```bash
 python generate_offset_0_test.py
+```
+Rename train images to `train_**` and test images to `eval_**` as the format of NeRFStudio.
+```bash
 python rename.py
-python convert_dnb_transforms.py
-
-
-## Multi-GPU
-ns-train nerfacto --machine.num-devices 4 --data ./ --pipeline.model.camera-optimizer.mode off
-
-## NeRFacto
+```
+Generate `transforms.json` for NeRF and 3D-GS.
+```bash
+python convert_XLD_transforms.py
+```
+Notably, change the arguments `num_cams` and `camera_list` for different camera settings, `offset_meters` for different offset settings.
+```python
+###### multi cameras, offsets=1m     ######
+generate_json_file(scene_path = 'data/carla_pic_0603_Town10', num_cams=3, camera_list=[1,0,2], offset_meters=1)
+###### front-only camera, offsets=1m ######
+generate_json_file(scene_path = 'data/carla_pic_0603_Town10', num_cams=1, camera_list=[0], offset_meters=1)
+```
+## Model Training
+### NeRFacto training
+```bash
 cd carla_pic_0603_Town01_cam1
+#### train #####
 CUDA_VISIBLE_DEVICES=1 ns-train nerfacto --pipeline.model.camera-optimizer.mode off --experiment-name nerfacto_offset_1m nerfstudio-data --eval-mode filename  --data ./
+#### eval #####
 CUDA_VISIBLE_DEVICES=2 ns-eval --load-config outputs/nerfacto_offset_1m/nerfacto/2024-06-06_145158/config.yml    --output-path ./nerfacto_offset_1/result.json --render-output-path ./nerfacto_offset_1
-## Instant-NGP
+```
+### Instant-NGP training
+```bash
 cd carla_pic_0603_Town01_cam1
+#### train #####
 CUDA_VISIBLE_DEVICES=0 ns-train instant-ngp --experiment-name instant_ngp_offset_1 nerfstudio-data --eval-mode filename  --data ./
+#### eval #####
 CUDA_VISIBLE_DEVICES=0 ns-eval --load-config outputs/instant_ngp_offset_1/instant-ngp/2024-06-06_165753/config.yml     --output-path ./instant-ngp_offset_1m/result.json --render-output-path ./instant-ngp_offset_1m
+```
 
-
-## 3D-GS
-#### 预处理
-##### 跑代码前，先修改convert_carlc_dnb.py中的数据路径
-python convert_carlc_dnb.py && python merge_lidar.py && python transform2colmap.py
-
+### Gaussian methods training
+#### Colmap-format data proprocessing
+Run python scripts to transforms.json to 3D-GS format.
+```bash
+python convert_XLD_transforms.py.  # generate transforms.json
+python merge_lidar.py              # merge 3D LiDAR point cloud as initialization 
+python transform2colmap.py         # transform transforms.json to colmap format
+```
+create a `images` folder and link the train and test images into it.
+```bash
 mkdir -p carla_pic_0603_Town01_cam3/images
 cd carla_pic_0603_Town01_cam3/images 
 ln -s ../../data/carla_pic_0603_Town01/train_pic/train_camera0_00* ./ && ln -s ../../data/carla_pic_0603_Town01/train_pic/train_camera1_00* ./
 ln -s ../../data/carla_pic_0603_Town01/train_pic/train_camera2_00* ./ && ln -s ../../data/carla_pic_0603_Town01/test_pic/offset_left_0m/eval_camera0_00* ./
 cd ../../
+```
 
-mkdir -p carla_pic_0603_Town02_cam3/images
-cd carla_pic_0603_Town02_cam3/images 
-ln -s ../../data/carla_pic_0603_Town02/train_pic/train_camera0_00* ./ && ln -s ../../data/carla_pic_0603_Town02/train_pic/train_camera1_00* ./
-ln -s ../../data/carla_pic_0603_Town02/train_pic/train_camera2_00* ./ && ln -s ../../data/carla_pic_0603_Town02/test_pic/offset_left_0m/eval_camera0_00* ./
-cd ../../
-
-mkdir -p carla_pic_0603_Town03_cam3/images
-cd carla_pic_0603_Town03_cam3/images 
-ln -s ../../data/carla_pic_0603_Town03/train_pic/train_camera0_00* ./ && ln -s ../../data/carla_pic_0603_Town03/train_pic/train_camera1_00* ./
-ln -s ../../data/carla_pic_0603_Town03/train_pic/train_camera2_00* ./ && ln -s ../../data/carla_pic_0603_Town03/test_pic/offset_left_0m/eval_camera0_00* ./
-cd ../../
-
-mkdir -p carla_pic_0603_Town04_cam3/images
-cd carla_pic_0603_Town04_cam3/images 
-ln -s ../../data/carla_pic_0603_Town04/train_pic/train_camera0_00* ./ && ln -s ../../data/carla_pic_0603_Town04/train_pic/train_camera1_00* ./
-ln -s ../../data/carla_pic_0603_Town04/train_pic/train_camera2_00* ./ && ln -s ../../data/carla_pic_0603_Town04/test_pic/offset_left_0m/eval_camera0_00* ./
-cd ../../
-
-mkdir -p carla_pic_0603_Town05_cam3/images
-cd carla_pic_0603_Town05_cam3/images 
-ln -s ../../data/carla_pic_0603_Town05/train_pic/train_camera0_00* ./ && ln -s ../../data/carla_pic_0603_Town05/train_pic/train_camera1_00* ./
-ln -s ../../data/carla_pic_0603_Town05/train_pic/train_camera2_00* ./ && ln -s ../../data/carla_pic_0603_Town05/test_pic/offset_left_0m/eval_camera0_00* ./
-cd ../../
-
-mkdir -p carla_pic_0603_Town10_cam3/images
-cd carla_pic_0603_Town10_cam3/images 
-ln -s ../../data/carla_pic_0603_Town10/train_pic/train_camera0_00* ./ && ln -s ../../data/carla_pic_0603_Town10/train_pic/train_camera1_00* ./
-ln -s ../../data/carla_pic_0603_Town10/train_pic/train_camera2_00* ./ && ln -s ../../data/carla_pic_0603_Town10/test_pic/offset_left_0m/eval_camera0_00* ./
-cd ../../
-
-
-#### 跑代码
+#### GaussianPro & 3D-GS training
+```bash
 cd carla_pic_0603_Town01_cam1
-CUDA_VISIBLE_DEVICES=7 ns-eval --load-config outputs/gsplat_cam1/splatfacto/2024-06-04_184542/config.yml --output-path ./gsplat_offset_1m/result.json --render-output-path ./gsplat_offset_1m
+CUDA_VISIBLE_DEVICES=0 python train.py -s carla_pic_0603_Town01_cam1 -m ./carla_pic_0603_Town01_cam1/output --position_lr_init 0.000016 --scaling_lr 0.001 --percent_dense 0.0005 --port 1021 --eval
+```
 
-cd carla_pic_0603_Town02_cam1
-CUDA_VISIBLE_DEVICES=7 ns-eval --load-config outputs/gsplat_cam1/splatfacto/2024-06-04_171316/config.yml --output-path ./gsplat_offset_1m/result.json --render-output-path ./gsplat_offset_1m
+## Acknowledgement
+The authors would like to thank [Yuanyuan Gao](https://github.com/gyy456) and [Jingfeng Li](https://github.com/Li-jingfeng) for preparing the experiments.
 
-cd carla_pic_0603_Town03_cam1
-CUDA_VISIBLE_DEVICES=6 ns-eval --load-config outputs/gsplat_cam1/splatfacto/2024-06-04_173618/config.yml --output-path ./gsplat_offset_1m/result.json --render-output-path ./gsplat_offset_1m
-
-cd carla_pic_0603_Town04_cam1
-CUDA_VISIBLE_DEVICES=5 ns-eval --load-config outputs/gsplat_cam1/splatfacto/2024-06-04_174532/config.yml --output-path ./gsplat_offset_1m/result.json --render-output-path ./gsplat_offset_1m
-
-cd carla_pic_0603_Town05_cam1
-CUDA_VISIBLE_DEVICES=4 ns-eval --load-config outputs/gsplat_cam1/splatfacto/2024-06-04_174638/config.yml --output-path ./gsplat_offset_1m/result.json --render-output-path ./gsplat_offset_1m
-
-cd carla_pic_0603_Town10_cam1
-CUDA_VISIBLE_DEVICES=4 ns-eval --load-config outputs/gsplat_cam1/splatfacto/2024-06-04_184924/config.yml --output-path ./gsplat_offset_1m/result.json --render-output-path ./gsplat_offset_1m
-
-cd carla_pic_0603_Town01_cam3
-CUDA_VISIBLE_DEVICES=5 ns-train splatfacto --experiment-name gsplat_offset_0m colmap --eval-mode filename  --data ./ --downscale-factor 1
-CUDA_VISIBLE_DEVICES=5 ns-eval --load-config outputs/gsplat_offset_0m/splatfacto/2024-06-04_184542/config.yml --output-path ./gsplat_offset_0m/result.json --render-output-path ./gsplat_offset_0m
-
-cd carla_pic_0603_Town02_cam3
-CUDA_VISIBLE_DEVICES=6 ns-train splatfacto --experiment-name gsplat_offset_0m colmap --eval-mode filename  --data ./ --downscale-factor 1
-CUDA_VISIBLE_DEVICES=6 ns-eval --load-config outputs/gsplat_offset_0m/splatfacto/2024-06-04_171316/config.yml --output-path ./gsplat_offset_0m/result.json --render-output-path ./gsplat_offset_0m
-
-cd carla_pic_0603_Town03_cam3
-CUDA_VISIBLE_DEVICES=7 ns-train splatfacto --experiment-name gsplat_offset_0m colmap --eval-mode filename  --data ./ --downscale-factor 1
-CUDA_VISIBLE_DEVICES=7 ns-eval --load-config outputs/gsplat_offset_0m/splatfacto/2024-06-04_173618/config.yml --output-path ./gsplat_offset_0m/result.json --render-output-path ./gsplat_offset_0m
-
-cd carla_pic_0603_Town04_cam3
-CUDA_VISIBLE_DEVICES=5 ns-train splatfacto --experiment-name gsplat_offset_0m colmap --eval-mode filename  --data ./ --downscale-factor 1
-CUDA_VISIBLE_DEVICES=7 ns-eval --load-config outputs/gsplat_offset_0m/splatfacto/2024-06-04_174532/config.yml --output-path ./gsplat_offset_0m/result.json --render-output-path ./gsplat_offset_0m
-
-cd carla_pic_0603_Town05_cam3
-CUDA_VISIBLE_DEVICES=3 ns-train splatfacto --experiment-name gsplat_offset_0m colmap --eval-mode filename  --data ./ --downscale-factor 1
-CUDA_VISIBLE_DEVICES=1 ns-eval --load-config outputs/gsplat_offset_0m/splatfacto/2024-06-04_174638/config.yml --output-path ./gsplat_offset_0m/result.json --render-output-path ./gsplat_offset_0m
-
-cd carla_pic_0603_Town10_cam3
-CUDA_VISIBLE_DEVICES=3 ns-train splatfacto --experiment-name gsplat_offset_0m colmap --eval-mode filename  --data ./ --downscale-factor 1
-CUDA_VISIBLE_DEVICES=4 ns-eval --load-config outputs/gsplat_offset_0m/splatfacto/2024-06-04_184924/config.yml --output-path ./gsplat_offset_0m/result.json --render-output-path ./gsplat_offset_0m
-
-
-cd carla_pic_0603_Town01_cam3
-CUDA_VISIBLE_DEVICES=1 ns-train splatfacto --experiment-name gsplat_offset_0m colmap --eval-mode filename  --data ./ --downscale-factor 1
-CUDA_VISIBLE_DEVICES=1 ns-eval --load-config outputs/gsplat_offset_0m/splatfacto/2024-06-04_222959/config.yml  --output-path ./gsplat_offset_0m/result.json --render-output-path ./gsplat_offset_0m
-CUDA_VISIBLE_DEVICES=1 ns-eval --load-config outputs/gsplat_offset_0m/splatfacto/2024-06-04_222959/config.yml  --output-path ./gsplat_offset_1m/result.json --render-output-path ./gsplat_offset_1m
-
-
-cd carla_pic_0603_Town02_cam3
-CUDA_VISIBLE_DEVICES=2 ns-train splatfacto --experiment-name gsplat_offset_0m colmap --eval-mode filename  --data ./ --downscale-factor 1
-CUDA_VISIBLE_DEVICES=2 ns-eval --load-config outputs/gsplat_offset_0m/splatfacto/2024-06-04_223007/config.yml  --output-path ./gsplat_offset_0m/result.json --render-output-path ./gsplat_offset_0m
-CUDA_VISIBLE_DEVICES=2 ns-eval --load-config outputs/gsplat_offset_0m/splatfacto/2024-06-04_223007/config.yml  --output-path ./gsplat_offset_1m/result.json --render-output-path ./gsplat_offset_1m
-
-
-cd carla_pic_0603_Town03_cam3
-CUDA_VISIBLE_DEVICES=3 ns-train splatfacto --experiment-name gsplat_offset_0m colmap --eval-mode filename  --data ./ --downscale-factor 1
-CUDA_VISIBLE_DEVICES=6 ns-eval --load-config outputs/gsplat_offset_0m/splatfacto/2024-06-04_223017/config.yml  --output-path ./gsplat_offset_0m/result.json --render-output-path ./gsplat_offset_0m
-
-
-cd carla_pic_0603_Town04_cam3
-CUDA_VISIBLE_DEVICES=4 ns-train splatfacto --experiment-name gsplat_offset_0m colmap --eval-mode filename  --data ./ --downscale-factor 1
-CUDA_VISIBLE_DEVICES=7 ns-eval --load-config outputs/gsplat_offset_0m/splatfacto/2024-06-04_223026/config.yml  --output-path ./gsplat_offset_0m/result.json --render-output-path ./gsplat_offset_0m
-
-
-cd carla_pic_0603_Town05_cam3
-CUDA_VISIBLE_DEVICES=5 ns-train splatfacto --experiment-name gsplat_offset_0m colmap --eval-mode filename  --data ./ --downscale-factor 1
-CUDA_VISIBLE_DEVICES=4 ns-eval --load-config outputs/gsplat_offset_0m/splatfacto/2024-06-04_223034/config.yml  --output-path ./gsplat_offset_0m/result.json --render-output-path ./gsplat_offset_0m
-
-
-cd carla_pic_0603_Town10_cam3
-CUDA_VISIBLE_DEVICES=6 ns-train splatfacto --experiment-name gsplat_offset_0m colmap --eval-mode filename  --data ./ --downscale-factor 1
-CUDA_VISIBLE_DEVICES=4 ns-eval --load-config outputs/gsplat_offset_0m/splatfacto/2024-06-04_223044/config.yml  --output-path ./gsplat_offset_0m/result.json --render-output-path ./gsplat_offset_0m
+## Citation
+```bibtex
+@article{li2024xld,
+    title={XLD: A Cross-Lane Dataset for Benchmarking Novel Driving View Synthesis},
+    author={Hao Li and Ming Yuan and Yan Zhang and Chenming Wu and Chen Zhao and Chunyu Song and Haocheng Feng and Errui Ding and Dingwen Zhang and Jingdong Wang},
+    journal={arXiv},
+    year={2024}
+}
+```
