@@ -76,6 +76,11 @@ generate_json_file(scene_path = 'data/carla_pic_0603_Town10', num_cams=3, camera
 generate_json_file(scene_path = 'data/carla_pic_0603_Town10', num_cams=1, camera_list=[0], offset_meters=1)
 ```
 ## Model Training
+### UC-NeRF training
+We provide a modified version of UC-NeRF to train on the XLD dataset flexibly.
+
+Please refer to the `readme.md` of the modified UC-NeRF on this [page](https://github.com/lifuguan/UC-NeRF).
+
 ### NeRFacto training
 ```bash
 cd carla_pic_0603_Town01_cam1
