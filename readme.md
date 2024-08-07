@@ -81,6 +81,11 @@ We provide a modified version of UC-NeRF to train on the XLD dataset flexibly.
 
 Please refer to the `readme.md` of the modified UC-NeRF on this [page](https://github.com/lifuguan/UC-NeRF).
 
+### EmerNeRF training
+We provide a modified version of EmerNeRF to train on the XLD dataset flexibly.
+
+Please refer to the `readme.md` of the modified EmerNeRF on this [page](https://github.com/lifuguan/EmerNeRF).
+
 ### NeRFacto training
 ```bash
 cd carla_pic_0603_Town01_cam1
