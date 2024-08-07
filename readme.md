@@ -3,7 +3,7 @@ Hao Li, Ming Yuan, Yan Zhang, Chenming Wu, Chen Zhao, Chunyu Song, Haocheng Feng
 ![Teaser image](assets/teaser.jpg)
 ## [Project page](https://3d-aigc.github.io/XLD/) | [Paper](https://arxiv.org/abs/2406.18360) | [Data](https://1drv.ms/f/s!Amx_1zEBrKfJg94-bGzJe1PaU8IU6Q?e=uVaFmg)
 
-This repository contains the official authors data preprocess tools for NeRFStudio and Gaussian Splatting methods. Additionally, for the dataloader of **UC-NeRF** and **EmerNeRF**, please E-mail✉️ authors.
+This repository contains the official authors data preprocess tools for NeRFStudio and Gaussian Splatting methods.
 
 ### Data Preprocess
 1. Unzip the compressed files (e.g. `carla_pic_0603_Town**.zip`).
