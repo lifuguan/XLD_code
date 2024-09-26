@@ -2,7 +2,7 @@ import numpy as np
 import os, shutils, json
 from plyfile import PlyData, PlyElement
 from scipy.spatial.transform import Rotation as R
-
+import math
 
 def pose_unreal2opengl(c2w_mat):
 
@@ -25,8 +25,8 @@ def pose_unreal2opengl(c2w_mat):
     c2w_mat[:3, 3] = translation_new
 
     rot = np.eye(4)
-    rot[1,1]=-1
-    rot[2, 2] = -1
+    # rot[1,1]=-1
+    # rot[2, 2] = -1
     c2w_mat = c2w_mat @ rot
     return c2w_mat
 
@@ -79,6 +79,7 @@ def generate_point_cloud_text(scene_path):
     point_cloud_files = []
     poses = [] 
     for t in range(start_timestep, end_timestep):
+    # for t in range(start_timestep, end_timestep, 5):
         with open(os.path.join(scene_path, "train_pic", f"train_camera_extrinsics_{t:06d}.json"), 'r') as file:
             ego_to_world_current = np.array(json.load(file)['transform_matrix'])
             lidar_to_world = pose_unreal2opengl(ego_to_world_current)
@@ -87,32 +88,40 @@ def generate_point_cloud_text(scene_path):
         poses.append(lidar_to_world)
         point_cloud_files.append(lidar_file)
 
-    # 读取并转换点云
+    # transfer point cloud 
     point_clouds = []
     for file, pose in zip(point_cloud_files, poses):
         points = read_ply(file)
         opengl_point_cloud = points.copy()
-        opengl_point_cloud[:, 0] = points[:, 0]
-        opengl_point_cloud[:, 1] = points[:, 2]
-        opengl_point_cloud[:, 2] = points[:, 1]
+        opengl_point_cloud[:, 0] = points[:, 2]
+        opengl_point_cloud[:, 1] = points[:, 1]
+        opengl_point_cloud[:, 2] = points[:, 0]
+
+        radian_z = -90 * np.pi / 180 # rotate around Z axis
+        Rotation_Matrix_1 =  np.array([  
+            [math.cos(radian_z), -math.sin(radian_z), 0],
+            [math.sin(radian_z), math.cos(radian_z), 0],
+            [0, 0, 1]])
+        opengl_point_cloud = np.dot(Rotation_Matrix_1, opengl_point_cloud.T).T
+
         transformed_points = transform_point_cloud(opengl_point_cloud, pose)
         point_clouds.append(transformed_points)
 
-    # 合并点云
+    # merge point cloud
     merged_cloud = merge_point_clouds(point_clouds)
-    # 保存合并后的点云
-    save_ply(merged_cloud, f'{scene_path.split("/")[-1]+"_cam1"}/merged_cloud.txt')
-    save_ply(merged_cloud, f'{scene_path.split("/")[-1]+"_cam3"}/merged_cloud.txt')
+    # Save the merged point cloud
+    save_ply(merged_cloud, f'{scene_path.split("/")[-1]+"_cam1"}/merged_cloud.ply')
+    save_ply(merged_cloud, f'{scene_path.split("/")[-1]+"_cam3"}/merged_cloud.ply')
 
-generate_point_cloud_text('data/carla_pic_0603_Town01')
-print("Done processing carla_pic_0603_Town01.")
-generate_point_cloud_text('data/carla_pic_0603_Town02')
-print("Done processing carla_pic_0603_Town02.")
-generate_point_cloud_text('data/carla_pic_0603_Town03')
-print("Done processing carla_pic_0603_Town03.")
-generate_point_cloud_text('data/carla_pic_0603_Town04')
-print("Done processing carla_pic_0603_Town04.")
-generate_point_cloud_text('data/carla_pic_0603_Town05')
-print("Done processing carla_pic_0603_Town05.")
+# generate_point_cloud_text('data/carla_pic_0603_Town01')
+# print("Done processing carla_pic_0603_Town01.")
+# generate_point_cloud_text('data/carla_pic_0603_Town02')
+# print("Done processing carla_pic_0603_Town02.")
+# generate_point_cloud_text('data/carla_pic_0603_Town03')
+# print("Done processing carla_pic_0603_Town03.")
+# generate_point_cloud_text('data/carla_pic_0603_Town04')
+# print("Done processing carla_pic_0603_Town04.")
+# generate_point_cloud_text('data/carla_pic_0603_Town05')
+# print("Done processing carla_pic_0603_Town05.")
 generate_point_cloud_text('data/carla_pic_0603_Town10')
 print("Done processing carla_pic_0603_Town10.")
